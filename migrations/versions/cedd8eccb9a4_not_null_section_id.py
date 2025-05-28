@@ -1,0 +1,253 @@
+"""not null-section_id
+
+Revision ID: cedd8eccb9a4
+Revises: 837950a9bb75
+Create Date: 2025-04-27 02:27:55.964616
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import mysql
+
+# revision identifiers, used by Alembic.
+revision: str = 'cedd8eccb9a4'
+down_revision: Union[str, None] = '837950a9bb75'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    # Отключаем проверку внешних ключей
+    op.execute('SET FOREIGN_KEY_CHECKS = 0')
+
+    # Удаляем таблицы в правильном порядке (от наиболее зависимых к наименее зависимым)
+    op.drop_table('orderitem')
+    op.drop_table('cartitem')
+    op.drop_table('drinkvolumeprice')
+    op.drop_table('passwordresettoken')
+    op.drop_table('usersession')
+    op.drop_table('emailverificationtoken')
+    op.drop_table('address')
+    op.drop_table('cart')
+    op.drop_table('drink')
+    op.drop_table('order')
+    op.drop_table('storeaddress')
+    op.drop_table('section')
+    op.drop_table('user')
+
+    # Включаем проверку внешних ключей обратно
+    op.execute('SET FOREIGN_KEY_CHECKS = 1')
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    # Отключаем проверку внешних ключей
+    op.execute('SET FOREIGN_KEY_CHECKS = 0')
+
+    # Создаем таблицы в обратном порядке (от наименее зависимых к наиболее зависимым)
+    op.create_table('user',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('email', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('hashed_password', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('first_name', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('last_name', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('birth_date', sa.DATE(), nullable=False),
+    sa.Column('middle_name', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('gender', mysql.ENUM('MALE', 'FEMALE', 'UNSPECIFIED'), nullable=True),
+    sa.Column('phone', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('role', mysql.ENUM('USER', 'ADMIN'), nullable=False),
+    sa.Column('is_active', mysql.TINYINT(display_width=1), autoincrement=False, nullable=False),
+    sa.Column('created_at', mysql.DATETIME(), nullable=False),
+    sa.Column('last_login', mysql.DATETIME(), nullable=True),
+    sa.Column('is_verified', mysql.TINYINT(display_width=1), autoincrement=False, nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('section',
+    sa.Column('title', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('imgSrc', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('id', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('storeaddress',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('street', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('building', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('entrance', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('apartment', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('floor', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('is_active', mysql.TINYINT(display_width=1), autoincrement=False, nullable=False),
+    sa.Column('opening_hours', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('phone', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('order',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('user_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('address_id', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('store_address_id', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('created_at', mysql.DATETIME(), nullable=False),
+    sa.Column('total_price', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('status', mysql.ENUM('NEW', 'ASSEMBLING', 'ON_THE_WAY', 'COMPLETED'), nullable=False),
+    sa.Column('delivery_type', mysql.ENUM('PICKUP', 'DELIVERY'), nullable=False),
+    sa.ForeignKeyConstraint(['address_id'], ['address.id'], name='order_ibfk_2'),
+    sa.ForeignKeyConstraint(['store_address_id'], ['storeaddress.id'], name='order_ibfk_3'),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='order_ibfk_1'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('drink',
+    sa.Column('name', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('imgSrc', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('ingredients', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('productDescription', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('global_sale', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('section_id', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.ForeignKeyConstraint(['section_id'], ['section.id'], name='fk_drink_section', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('cart',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('user_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='cart_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('address',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('user_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('street', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('house', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=50), nullable=False),
+    sa.Column('entrance', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('floor', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('apartment', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('is_default', mysql.TINYINT(display_width=1), autoincrement=False, nullable=False),
+    sa.Column('created_at', mysql.DATETIME(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='address_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('emailverificationtoken',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('user_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('token', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('expires_at', mysql.DATETIME(), nullable=False),
+    sa.Column('created_at', mysql.DATETIME(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='emailverificationtoken_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('usersession',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('user_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('refresh_token', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('expires_at', mysql.DATETIME(), nullable=False),
+    sa.Column('user_agent', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('ip_address', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='usersession_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('passwordresettoken',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('user_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('token', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=False),
+    sa.Column('expires_at', mysql.DATETIME(), nullable=False),
+    sa.Column('is_used', mysql.TINYINT(display_width=1), autoincrement=False, nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='passwordresettoken_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('drinkvolumeprice',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('volume', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('price', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('quantity', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('sale', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('imgSrc', mysql.VARCHAR(collation='utf8mb4_unicode_ci', length=255), nullable=True),
+    sa.Column('drink_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.ForeignKeyConstraint(['drink_id'], ['drink.id'], name='drinkvolumeprice_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('cartitem',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('cart_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('drink_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('drink_volume_price_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('quantity', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.ForeignKeyConstraint(['cart_id'], ['cart.id'], name='cartitem_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['drink_id'], ['drink.id'], name='cartitem_ibfk_2'),
+    sa.ForeignKeyConstraint(['drink_volume_price_id'], ['drinkvolumeprice.id'], name='cartitem_ibfk_3'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    op.create_table('orderitem',
+    sa.Column('id', mysql.INTEGER(), autoincrement=True, nullable=False),
+    sa.Column('order_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('drink_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('drink_volume_price_id', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('quantity', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('volume', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.Column('price', mysql.INTEGER(), autoincrement=False, nullable=False),
+    sa.Column('sale', mysql.INTEGER(), autoincrement=False, nullable=True),
+    sa.ForeignKeyConstraint(['drink_id'], ['drink.id'], name='orderitem_ibfk_2'),
+    sa.ForeignKeyConstraint(['drink_volume_price_id'], ['drinkvolumeprice.id'], name='orderitem_ibfk_3'),
+    sa.ForeignKeyConstraint(['order_id'], ['order.id'], name='orderitem_ibfk_1', onupdate='RESTRICT', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    mysql_collate='utf8mb4_unicode_ci',
+    mysql_default_charset='utf8mb4',
+    mysql_engine='InnoDB'
+    )
+
+    # Создаем индексы
+    op.create_index('ix_user_email', 'user', ['email'], unique=True)
+    op.create_index('ix_emailverificationtoken_token', 'emailverificationtoken', ['token'], unique=True)
+    op.create_index('ix_usersession_refresh_token', 'usersession', ['refresh_token'], unique=True)
+    op.create_index('ix_passwordresettoken_token', 'passwordresettoken', ['token'], unique=True)
+
+    # Включаем проверку внешних ключей обратно
+    op.execute('SET FOREIGN_KEY_CHECKS = 1')
