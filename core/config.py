@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     # Указываем путь к базе данных, которая будет храниться в папке проекта
     DATABASE_URL: str # База данных будет храниться в файле drink_shop_db.db
     DB_SSL_CA_PATH: str
+    RENDER_SSL_PATH: str
     db_host: str
     db_port: int
     db_username: str
