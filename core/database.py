@@ -1,11 +1,15 @@
 from sqlmodel import create_engine, SQLModel, Session
 from pathlib import Path
 
-# Путь к БД в корне проекта
-BASE_DIR = Path(__file__).parent.parent
-DATABASE_URL = "mysql+mysqlconnector://root:root@localhost/zerop_db"
+from core.config import settings
 
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(
+    settings.DATABASE_URL,
+    connect_args={
+        "ssl_ca": settings.DB_SSL_CA_PATH  # путь к ssl сертификату
+    },
+    echo=True
+)
 
 def get_session():
     with Session(engine) as session:

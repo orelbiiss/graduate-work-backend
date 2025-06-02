@@ -9,7 +9,6 @@ from api.order import setup_order_endpoints
 from api.password import setup_password_endpoints
 from api.verification import setup_verification_endpoints
 from core.database import create_tables
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -24,8 +23,6 @@ app.add_middleware(
     allow_methods=["*"],  # Разрешить все HTTP-методы (GET, POST, PUT, DELETE и т.д.)
     allow_headers=["*"],  # Разрешить все заголовки
 )
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Инициализация БД
 create_tables()

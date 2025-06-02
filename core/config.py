@@ -6,7 +6,13 @@ from fastapi_mail import ConnectionConfig
 
 class Settings(BaseSettings):
     # Указываем путь к базе данных, которая будет храниться в папке проекта
-    DATABASE_URL: str = "mysql+mysqlconnector://root:root@localhost/zerop_db" # База данных будет храниться в файле drink_shop_db.db
+    DATABASE_URL: str # База данных будет храниться в файле drink_shop_db.db
+    DB_SSL_CA_PATH: str
+    db_host: str
+    db_port: int
+    db_username: str
+    db_password: str
+    db_database: str
     ALGORITHM: str = "HS256"  # Алгоритм шифрования JWT
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # Время жизни токена (мин)
     SECRET_KEY: str
