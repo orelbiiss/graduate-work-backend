@@ -13,6 +13,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+@app.get("/healthz")
+def health_check():
+    return {"status": "OK"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
