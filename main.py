@@ -21,7 +21,6 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # Для фронтенда на localhost
-        "http://127.0.0.1:3000",  # Альтернативный адрес фронтенда
         "https://zero-percent.vercel.app",
     ],  # Укажите домен вашего фронтенда
     allow_credentials=True,  # Разрешить куки и авторизацию

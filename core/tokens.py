@@ -26,11 +26,11 @@ def set_jwt_cookie(
         key="access_token",  # Название куки
         value=token,         # Значение JWT токена
         httponly=True,       # Защита от XSS-атак
-        secure=False,         # Только для HTTPS (в production)
-        samesite="lax",      # Защита от CSRF-атак
+        secure=True,         # Только для HTTPS (в production)
+        samesite="none",      # Защита от CSRF-атак
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Время жизни в секундах
         path="/",            # Доступно для всех путей
-        domain=None,
+        domain="graduate-work-backend.onrender.com",
     )
 
 # Получение токена из куки запроса
