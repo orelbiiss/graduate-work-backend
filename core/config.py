@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     MAIL_FROM_NAME: str = "ZeroPercent: ваш партнер в заботе о вас и вашем здоровье"  # Имя отправителя
     SITE_NAME: str = "ZeroPercent"
 
-    FRONTEND_BASE_URL: str = "http://localhost:3000"
+    FRONTEND_BASE_URL: str = "https://zero-percent.vercel.app/"
 
 
 
