@@ -22,6 +22,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",  # Для фронтенда на localhost
         "https://zero-percent.vercel.app",
+    "https://graduate-work-backend.onrender.com"
     ],  # Укажите домен вашего фронтенда
     allow_credentials=True,  # Разрешить куки и авторизацию
     allow_methods=["*"],  # Разрешить все HTTP-методы (GET, POST, PUT, DELETE и т.д.)
