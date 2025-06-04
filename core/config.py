@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     db_password: str
     db_database: str
     ALGORITHM: str = "HS256"  # Алгоритм шифрования JWT
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # Время жизни токена (мин)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     SECRET_KEY: str
     CLIENT_ID: str
     CLIENT_SECRET: str

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, UTC
 
 # 2. Библиотеки сторонних пакетов
 from fastapi import Depends, HTTPException, Response, Request, Form, BackgroundTasks
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select, func, delete
 
 from api.cart import update_cart_totals
 # 3. Локальные модули
@@ -11,7 +11,7 @@ from api.password import hash_password, verify_password
 from api.verification import send_verification_email, generate_verification_token
 
 # Модели базы данных
-from models.auth_models import User, UserRole, Address, EmailVerificationToken, UnverifiedUser
+from models.auth_models import User, UserRole, Address, EmailVerificationToken, UnverifiedUser, UserSession
 from models.cart_models import OrderItem, Order, CartItem, Cart
 from models.models import DrinkVolumePrice, Drink
 
@@ -22,8 +22,7 @@ from schemas.auth import UserCreate, UserRead, UserLogin, UserUpdate
 from core.config import settings
 from core.database import get_session
 from core.dependencies import get_current_user, get_role_from_token
-from core.tokens import create_access_token, set_jwt_cookie
-
+from core.tokens import create_access_token, set_jwt_cookie, create_refresh_token
 
 
 def setup_auth_endpoints(app):
@@ -166,9 +165,24 @@ def setup_auth_endpoints(app):
         if not verify_password(user_data.password, user.hashed_password):
             raise HTTPException(status_code=400, detail="Неверный пароль")
 
+        # Создаем новую сессию
+        refresh_token_cookie = create_refresh_token()
+        user_session = UserSession(
+            user_id=user.id,
+            refresh_token=refresh_token_cookie,
+            user_agent=request.headers.get("User-Agent"),
+            ip_address=request.client.host
+        )
+        session.add(user_session)
+
         # Обновляем время последнего входа
         user.last_login = datetime.now(UTC)
         session.add(user)
+        session.commit()
+
+        # Генерируем токены
+        access_token = create_access_token({"sub": user.email, "role": user.role})
+        set_jwt_cookie(response, access_token, refresh_token_cookie)
 
         # Получаем сессионную корзину (если есть)
         session_key = request.cookies.get("cart_session_key")
@@ -234,31 +248,35 @@ def setup_auth_endpoints(app):
                 update_cart_totals(user_cart.id, session)
                 session.commit()
 
-        # Генерируем токен доступа
-        access_token = create_access_token(
-            {"sub": user.email, "role": user.role},
-            timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        )
-
-        # Устанавливаем токен в HTTP-only куку
-        set_jwt_cookie(response, access_token)
-
         return UserRead.model_validate(user)
 
     # Выход пользователя (удаляет JWT куку)
     @app.post("/auth/signout", tags=["Registration/Authentication"])
     async def signout_user(
-            response: Response
+            request: Request,
+            response: Response,
+            session: Session = Depends(get_session),
+            current_user: User = Depends(get_current_user)
     ):
-
         """Завершение сеанса пользователя с удалением JWT куки"""
 
+        refresh_token_cookie = request.cookies.get("refresh_token")
+        if refresh_token_cookie:
+            # Удаляем сессию из БД
+            session.exec(
+                delete(UserSession)
+                .where(UserSession.refresh_token == refresh_token_cookie)
+                .where(UserSession.user_id == current_user.id)
+            )
+            session.commit()
+
+        # Очищаем куки
         response.delete_cookie("access_token")
+        response.delete_cookie("refresh_token")
+
         return {"message": "Успешный выход"}
 
-    ######################
     # ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
-    ######################
 
     # Получение данных текущего пользователя
     @app.get("/user/profile", tags=["User Profile"], response_model=UserRead)
@@ -385,9 +403,8 @@ def setup_auth_endpoints(app):
         """Получение данных текущего пользователя"""
         return current_user
 
-    ###################
+
     # ПРОВЕРКА ДОСТУПА
-    ###################
 
     @app.get("/auth/verify", tags=["Access Control"])
     async def get_user_role(
@@ -398,4 +415,40 @@ def setup_auth_endpoints(app):
 
         role = get_role_from_token(request)
         return {"role": role}
+
+    @app.post("/auth/refresh", tags=["Access Control"])
+    async def refresh_token(
+            request: Request,
+            response: Response,
+            session: Session = Depends(get_session)
+    ):
+        refresh_token_cookie = request.cookies.get("refresh_token")
+        if not refresh_token_cookie:
+            raise HTTPException(status_code=401, detail="Требуется авторизация")
+
+        # Ищем активную сессию
+        user_session = session.exec(
+            select(UserSession)
+            .where(UserSession.refresh_token == refresh_token_cookie)
+            .where(UserSession.expires_at > datetime.now(UTC))
+        ).first()
+
+        if not user_session:
+            raise HTTPException(status_code=401, detail="Недействительный refresh token")
+
+        # Генерируем новый access token
+        user = session.get(User, user_session.user_id)
+        new_access_token = create_access_token({"sub": user.email, "role": user.role})
+
+        # Обновляем куки (refresh token остается прежним)
+        response.set_cookie(
+            key="access_token",
+            value=new_access_token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        )
+
+        return {"access_token": new_access_token}
 
