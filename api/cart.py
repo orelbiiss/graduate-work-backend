@@ -98,7 +98,8 @@ def get_or_create_cart(
         max_age=30 * 24 * 60 * 60,
         httponly=True,
         secure=True,
-        samesite="none"
+        samesite="none",
+        domain="graduate-work-backend.onrender.com"
     )
     return cart
 
