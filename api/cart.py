@@ -89,7 +89,7 @@ def get_or_create_cart(
         max_age=30 * 24 * 60 * 60,  # 30 дней
         httponly=True,
         secure=True,
-        samesite="lax"
+        samesite="none"
     )
 
     return cart
