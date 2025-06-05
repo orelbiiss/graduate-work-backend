@@ -53,7 +53,7 @@ def setup_order_endpoints(app: FastAPI):
 
         # 3. Получение данных пользователя
         user = session.get(User, current_user.id)
-        customer_name = f"{user.last_name} {user.first_name}".strip()
+        customer_name = f"{user.last_name} {user.first_name} {user.middle_name}".strip()
         customer_phone = user.phone
 
         # 4. Обработка доставки
