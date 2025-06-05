@@ -76,7 +76,14 @@ def get_or_create_cart(
             cart = guest_cart
 
         # Удаляем куку гостевой сессии
-        response.delete_cookie("cart_session_key")
+        response.delete_cookie(
+            key="cart_session_key",
+            httponly=True,
+            secure=True,
+            samesite="none",
+            domain="graduate-work-backend.onrender.com"
+        )
+
         session.commit()
         return cart
 
