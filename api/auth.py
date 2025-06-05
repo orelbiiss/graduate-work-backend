@@ -184,70 +184,6 @@ def setup_auth_endpoints(app):
         access_token = create_access_token({"sub": user.email, "role": user.role})
         set_jwt_cookie(response, access_token, refresh_token_cookie)
 
-        # Получаем сессионную корзину (если есть)
-        session_key = request.cookies.get("cart_session_key")
-        if session_key:
-            session_cart = session.exec(
-                select(Cart).where(Cart.session_key == session_key)
-            ).first()
-
-            if session_cart and session_cart.items:
-                # Получаем или создаем пользовательскую корзину
-                user_cart = session.exec(
-                    select(Cart).where(Cart.user_id == user.id)
-                ).first()
-
-                if not user_cart:
-                    user_cart = Cart(user_id=user.id)
-                    session.add(user_cart)
-
-                # Переносим товары из сессионной корзины
-                for item in session_cart.items:
-
-                    # Получаем информацию о цене напитка
-                    drink_volume_price = session.exec(
-                        select(DrinkVolumePrice)
-                        .where(DrinkVolumePrice.id == item.drink_volume_price_id)
-                        .join(Drink)
-                    ).first()
-
-                    if not drink_volume_price:
-                        continue
-                    existing_item = session.exec(
-                        select(CartItem)
-                        .where(CartItem.cart_id == user_cart.id)
-                        .where(CartItem.drink_volume_price_id == item.drink_volume_price_id)
-                    ).first()
-
-                    # Определяем процент скидки (из объема или глобальный)
-                    sale_percent = drink_volume_price.sale or drink_volume_price.drink.global_sale or 0
-                    price_final = round(drink_volume_price.price * (100 - sale_percent) / 100)
-
-                    if existing_item:
-                        existing_item.quantity += item.quantity
-                        existing_item.item_subtotal = drink_volume_price.price * existing_item.quantity
-                        existing_item.item_discount = (drink_volume_price.price - price_final) * existing_item.quantity
-                        existing_item.item_total = price_final * existing_item.quantity
-                    else:
-                        new_item = CartItem(
-                            cart_id=user_cart.id,
-                            drink_id=item.drink_id,
-                            drink_volume_price_id=item.drink_volume_price_id,
-                            quantity=item.quantity,
-                            item_subtotal=item.item_subtotal,
-                            item_discount=item.item_discount,
-                            item_total=item.item_total
-                        )
-                        session.add(new_item)
-
-                # Удаляем сессионную корзину
-                session.delete(session_cart)
-                response.delete_cookie("cart_session_key")
-
-                # Обновляем итоговые суммы
-                update_cart_totals(user_cart.id, session)
-                session.commit()
-
         return UserRead.model_validate(user)
 
     # Выход пользователя (удаляет JWT куку)
@@ -395,13 +331,6 @@ def setup_auth_endpoints(app):
             "message": "Аккаунт и все связанные данные успешно удалены",
             "deleted_at": datetime.now(UTC).isoformat()
         }
-
-    @app.get("/user/profile", tags=["User Profile"], response_model=UserRead)
-    async def get_current_user_data(
-            current_user: User = Depends(get_current_user)
-    ):
-        """Получение данных текущего пользователя"""
-        return current_user
 
 
     # ПРОВЕРКА ДОСТУПА

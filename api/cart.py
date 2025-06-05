@@ -27,81 +27,90 @@ def get_or_create_cart(
         session: Session = Depends(get_session),
         current_user: Optional[User] = None
 ) -> Cart:
-    """Ищет корзину пользователя или создает новую (с очисткой старых)"""
+    """Объединяет гостевую и пользовательскую корзины при входе"""
 
-    # Для авторизованных пользователей
+    session_key = request.cookies.get("cart_session_key")
+    guest_cart = None
+    user_cart = None
+
+    # 1. Находим гостевую корзину (если есть)
+    if session_key:
+        guest_cart = session.exec(
+            select(Cart)
+            .where(Cart.session_key == session_key)
+            .where(Cart.user_id.is_(None))
+        ).first()
+
+    # 2. Находим пользовательскую корзину (если пользователь авторизован)
     if current_user:
-        # Удаляем все старые корзины пользователя (если вдруг появились дубли)
-        session.exec(
-            delete(Cart)
-            .where(Cart.user_id == current_user.id)
-            .where(Cart.id != current_user.current_cart_id)  # Если есть поле с текущей корзиной
-        )
-
-        cart = session.exec(
+        user_cart = session.exec(
             select(Cart).where(Cart.user_id == current_user.id)
         ).first()
 
-        if not cart:
-            cart = Cart(
-                user_id=current_user.id,
-                cart_subtotal=0,
-                cart_discount=0,
-                cart_total=0
-            )
-            session.add(cart)
-            session.commit()
-            session.refresh(cart)
+    # 3. Слияние корзин при входе пользователя
+    if current_user and guest_cart and (not user_cart or user_cart.id != guest_cart.id):
+        if user_cart:
+            # Переносим товары из гостевой корзины в пользовательскую
+            guest_items = session.exec(
+                select(CartItem).where(CartItem.cart_id == guest_cart.id)
+            ).all()
+
+            for item in guest_items:
+                existing_item = session.exec(
+                    select(CartItem)
+                    .where(CartItem.cart_id == user_cart.id)
+                    .where(CartItem.drink_volume_price_id == item.drink_volume_price_id)
+                ).first()
+
+                if existing_item:
+                    existing_item.quantity += item.quantity
+                else:
+                    item.cart_id = user_cart.id
+                    session.add(item)
+
+            session.delete(guest_cart)
+            cart = user_cart
+        else:
+            # Привязываем гостевую корзину к пользователю
+            guest_cart.user_id = current_user.id
+            cart = guest_cart
+
+        # Удаляем куку гостевой сессии
+        response.delete_cookie("cart_session_key")
+        session.commit()
         return cart
 
-    # Для неавторизованных пользователей
-    session_key = request.cookies.get("cart_session_key")
+    # 4. Возвращаем существующую корзину
+    if user_cart:
+        return user_cart
+    if guest_cart:
+        return guest_cart
 
-    # Если есть кука - ищем корзину и удаляем старые
-    if session_key:
-        # Удаляем все корзины с этим session_key, кроме последней
-        session.exec(
-            delete(Cart)
-            .where(Cart.session_key == session_key)
-            .where(Cart.id != select(Cart.id)
-                   .where(Cart.session_key == session_key)
-                   .order_by(Cart.created_at.desc())
-                   .limit(1)
-                   .scalar_subquery())
-        )
-
-        cart = session.exec(
-            select(Cart)
-            .where(Cart.session_key == session_key)
-        ).first()
-
-        if cart:
-            return cart
-
-    # Создаем новую корзину
+    # 5. Создаем новую корзину
     new_session_key = str(uuid4())
     cart = Cart(
         session_key=new_session_key,
-        user_id=None,
+        user_id=current_user.id if current_user else None,
         cart_subtotal=0,
         cart_discount=0,
         cart_total=0
     )
     session.add(cart)
     session.commit()
-    session.refresh(cart)
 
-    # Устанавливаем куку
-    response.set_cookie(
-        key="cart_session_key",
-        value=new_session_key,
-        max_age=30 * 24 * 60 * 60,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        domain="graduate-work-backend.onrender.com"
-    )
+    if not current_user:
+        response.set_cookie(
+            key="cart_session_key",
+            value=new_session_key,
+            max_age=30 * 24 * 60 * 60,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            domain="graduate-work-backend.onrender.com"
+        )
+
     return cart
+
 
 
 def update_cart_totals(cart_id: int, session: Session):
