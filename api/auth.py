@@ -377,8 +377,13 @@ def setup_auth_endpoints(app):
         if not user_session:
             raise HTTPException(status_code=401, detail="Недействительный refresh token")
 
-        # Генерируем новый access token
+
+        # Получаем пользователя
         user = session.get(User, user_session.user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+        # Генерируем новый access token
         new_access_token = create_access_token({"sub": user.email, "role": user.role})
 
         # Обновляем куки (refresh token остается прежним)
@@ -391,5 +396,8 @@ def setup_auth_endpoints(app):
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
 
-        return {"access_token": new_access_token}
+        return {
+            "access_token": new_access_token,
+            "user": UserRead.model_validate(user)
+        }
 
