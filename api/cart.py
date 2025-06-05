@@ -27,10 +27,17 @@ def get_or_create_cart(
         session: Session = Depends(get_session),
         current_user: Optional[User] = None
 ) -> Cart:
-    """Ищет корзину пользователя или создает новую (для авторизованных и неавторизованных)"""
+    """Ищет корзину пользователя или создает новую (с очисткой старых)"""
 
     # Для авторизованных пользователей
     if current_user:
+        # Удаляем все старые корзины пользователя (если вдруг появились дубли)
+        session.exec(
+            delete(Cart)
+            .where(Cart.user_id == current_user.id)
+            .where(Cart.id != current_user.current_cart_id)  # Если есть поле с текущей корзиной
+        )
+
         cart = session.exec(
             select(Cart).where(Cart.user_id == current_user.id)
         ).first()
@@ -47,29 +54,31 @@ def get_or_create_cart(
             session.refresh(cart)
         return cart
 
-    # Для неавторизованных пользователей (используем session_key из куки)
+    # Для неавторизованных пользователей
     session_key = request.cookies.get("cart_session_key")
 
+    # Если есть кука - ищем корзину и удаляем старые
     if session_key:
-        cart = session.exec(
-            select(Cart).where(Cart.session_key == session_key)
-        ).first()
-        if cart:
-            return cart
+        # Удаляем все корзины с этим session_key, кроме последней
+        session.exec(
+            delete(Cart)
+            .where(Cart.session_key == session_key)
+            .where(Cart.id != select(Cart.id)
+                   .where(Cart.session_key == session_key)
+                   .order_by(Cart.created_at.desc())
+                   .limit(1)
+                   .scalar_subquery())
+        )
 
-    # Создаем новую корзину для неавторизованного пользователя
-    session_key = request.cookies.get("cart_session_key")
-
-    if session_key:
         cart = session.exec(
             select(Cart)
             .where(Cart.session_key == session_key)
-            .where(Cart.user_id.is_(None))
         ).first()
 
         if cart:
             return cart
 
+    # Создаем новую корзину
     new_session_key = str(uuid4())
     cart = Cart(
         session_key=new_session_key,
@@ -82,16 +91,15 @@ def get_or_create_cart(
     session.commit()
     session.refresh(cart)
 
-    # Устанавливаем куку с session_key
+    # Устанавливаем куку
     response.set_cookie(
         key="cart_session_key",
         value=new_session_key,
-        max_age=30 * 24 * 60 * 60,  # 30 дней
+        max_age=30 * 24 * 60 * 60,
         httponly=True,
         secure=True,
         samesite="none"
     )
-
     return cart
 
 
