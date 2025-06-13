@@ -7,12 +7,12 @@ from sqlmodel import Session, select, func
 
 from models.auth_models import StoreAddress, Address
 # Модели базы данных
-from models.cart_models import Order, OrderItem
+from models.cart_models import Order, OrderItem, DeliveryInfo
 from models.models import DrinkVolumePrice
 from schemas.address import StoreAddressRead, AddressRead
 
 # Схемы для сериализации данных
-from schemas.cart import (OrderRead, OrderUpdate, OrderStatus)
+from schemas.cart import (OrderRead, OrderUpdate, OrderStatus, OrderItemRead)
 # База данных
 from core.database import get_session
 
@@ -74,21 +74,7 @@ def setup_admin_endpoints(app: FastAPI):
         for order in orders:
             order_data = order.dict()
 
-            # Добавляем адрес, если есть
-            if order.address_id:
-                address = session.get(Address, order.address_id)
-                order_data["address"] = AddressRead.model_validate(address) if address else None
-            else:
-                order_data["address"] = None
-
-            # Добавляем магазин, если есть
-            if order.store_address_id:
-                store_address = session.get(StoreAddress, order.store_address_id)
-                order_data["store_address"] = StoreAddressRead.model_validate(store_address) if store_address else None
-            else:
-                order_data["store_address"] = None
-
-            # Добавляем элементы заказа
+            # Получаем элементы заказа
             order_items = session.exec(
                 select(OrderItem).where(OrderItem.order_id == order.id)
             ).all()
@@ -96,23 +82,38 @@ def setup_admin_endpoints(app: FastAPI):
             items_read = []
             for item in order_items:
                 drink_volume = session.get(DrinkVolumePrice, item.drink_volume_price_id)
-                items_read.append({
-                    "id": item.id,
-                    "drink_id": item.drink_id,
-                    "drink_volume_price_id": item.drink_volume_price_id,
-                    "quantity": item.quantity,
-                    "volume": item.volume,
-                    "price_original": item.price_original,
-                    "sale": item.sale,
-                    "price_final": item.price_final,
-                    "item_subtotal": item.item_subtotal,
-                    "item_discount": item.item_discount,
-                    "item_total": item.item_total,
-                    "name": drink_volume.drink.name if drink_volume else None,
-                    "img_src": drink_volume.img_src if drink_volume else None
+                items_read.append(OrderItemRead(
+                    **item.dict(),
+                    name=drink_volume.drink.name if drink_volume else None,
+                    img_src=drink_volume.img_src if drink_volume else None
+                ))
+
+            # Получаем информацию о доставке
+            delivery_info = session.exec(
+                select(DeliveryInfo).where(DeliveryInfo.order_id == order.id)
+            ).first()
+
+            # Обновляем данные заказа, включая delivery_info
+            if delivery_info:
+                order_data.update({
+                    "full_address": delivery_info.full_address,
+                    "delivery_comment": delivery_info.delivery_comment,
+                    "delivery_date": delivery_info.delivery_date,
+                    "delivery_time": delivery_info.delivery_time,
+                    "customer_name": delivery_info.customer_name,
+                    "customer_phone": delivery_info.customer_phone,
+                    "delivery_price": delivery_info.delivery_price
                 })
 
-            order_data["items"] = items_read
+            # Добавляем адрес и магазин (как в /orders/my)
+            address = session.get(Address, order.address_id) if order.address_id else None
+            store_address = session.get(StoreAddress, order.store_address_id) if order.store_address_id else None
+
+            order_data.update({
+                "items": items_read,
+                "address": AddressRead.model_validate(address).dict() if address else None,
+                "store_address": StoreAddressRead.model_validate(store_address).dict() if store_address else None
+            })
 
             enriched_orders.append(order_data)
 
