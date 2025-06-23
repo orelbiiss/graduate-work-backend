@@ -230,11 +230,8 @@ def setup_cart_endpoints(app: FastAPI):
 
         # Проверяем, что товар принадлежит корзине текущего пользователя
         cart = get_or_create_cart(request, response, session, current_user)
-        if not cart or cart.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Нельзя удалить чужой товар из корзины"
-            )
+        if not cart or cart_item.cart_id != cart.id:
+            raise HTTPException(status_code=403, detail="Нельзя изменить чужую корзину")
 
         # Находим связанный товар на складе
         drink_volume_price = session.get(DrinkVolumePrice, cart_item.drink_volume_price_id)
@@ -276,8 +273,8 @@ def setup_cart_endpoints(app: FastAPI):
 
         # Проверка прав доступа
         cart = get_or_create_cart(request, response, session, current_user)
-        if not cart or cart.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Недостаточно прав")
+        if not cart or cart_item.cart_id != cart.id:
+            raise HTTPException(status_code=403, detail="Нельзя изменить чужую корзину")
 
         # Получаем связанный товар на складе
         drink_volume_price = session.get(DrinkVolumePrice, cart_item.drink_volume_price_id)

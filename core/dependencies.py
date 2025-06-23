@@ -6,9 +6,9 @@ from core.config import settings
 from core.database import get_session
 from sqlmodel import Session, select
 
-from core.tokens import get_token_from_cookie, create_access_token, set_jwt_cookie, create_tokens
+from core.tokens import get_token_from_cookie, set_jwt_cookie, create_tokens
 from models.auth_models import User, UserSession
-from datetime import datetime, timedelta, UTC, timezone
+from datetime import datetime, timedelta, UTC
 
 # Проверка токена и возврат текущего пользователя (работает через куки)
 def get_current_user(
@@ -58,7 +58,7 @@ def get_current_user(
         if not refresh_token:
             raise HTTPException(status_code=401, detail="Требуется авторизация")
 
-        # 5. Проверка refresh token в базе (с явным приведением к UTC)
+        # 5. Проверка refresh token в базе
         user_session = session.exec(
             select(UserSession)
             .where(UserSession.refresh_token == refresh_token)
