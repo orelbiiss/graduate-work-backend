@@ -64,6 +64,10 @@ def get_or_create_cart(
 
                 if existing_item:
                     existing_item.quantity += item.quantity
+                    existing_item.item_subtotal = existing_item.price_original * existing_item.quantity
+                    existing_item.item_discount = (existing_item.price_original - existing_item.price_final) * existing_item.quantity
+                    existing_item.item_total = existing_item.price_final * existing_item.quantity
+                    session.add(existing_item)
                 else:
                     item.cart_id = user_cart.id
                     session.add(item)
@@ -85,6 +89,7 @@ def get_or_create_cart(
         )
 
         session.commit()
+        update_cart_totals(cart.id, session)
         return cart
 
     # 4. Возвращаем существующую корзину
